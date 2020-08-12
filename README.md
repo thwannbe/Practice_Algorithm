@@ -1,1 +1,1 @@
-# friendly-disco
+# Algorithm
