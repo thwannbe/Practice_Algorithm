@@ -5,18 +5,20 @@
 using namespace std;
 
 #define MAX_LINE_SIZE 20
+#define DEBUG 0
 
 int line_size;
 
 struct line_info {
 	vector<int> info;
 	vector<int*> candidate;
-	bool done;
 } rows[MAX_LINE_SIZE], cols[MAX_LINE_SIZE];
 
 int answer[MAX_LINE_SIZE][MAX_LINE_SIZE];
 
 bool answer_update = false;
+
+bool got_answer = false;
 
 void print_answer(void);
 
@@ -67,7 +69,7 @@ int* copy_line(const int* src) {
 	return ret;
 }
 
-void recur_gen(const vector<int> info, vector<int*>& candidate,
+void recur_gen(const vector<int> info, vector<int*> & candidate,
 	int info_idx, int next_board_ptr, int* line_snap) {
 	if (info_idx == info.size()) {
 		// all consumed
@@ -108,6 +110,27 @@ void copy_cand_to_answer(int index, const int* cand, bool isRow) {
 	}
 }
 
+void squeeze_answer_from_cand(int index, vector<int*> v, bool isRow) {
+	for (int i = 0; i < line_size; i++) {
+		int prev = 2; int j;
+		for (j = 0; j < v.size(); j++) {
+			if (prev != 2 && v[j][i] != prev) {
+				break;
+			}
+			prev = v[j][i];
+		}
+		if (j == v.size()) {
+			// all same
+			if (isRow) {
+				answer[index][i] = prev;
+			}
+			else {
+				answer[i][index] = prev;
+			}
+		}
+	}
+}
+
 void fill_candidate(void) {
 	// add all candidate for each rows and columns
 	// if anything has only one candidate, it must be answer.
@@ -118,11 +141,18 @@ void fill_candidate(void) {
 			copy_cand_to_answer(i, rows[i].candidate[0], true);
 			answer_update = true;
 		}
+		else {
+			squeeze_answer_from_cand(i, rows[i].candidate, true);
+		}
+
 		// for cols
 		gen_candidate(i, false);
 		if (cols[i].candidate.size() == 1) {
 			copy_cand_to_answer(i, cols[i].candidate[0], false);
 			answer_update = true;
+		}
+		else {
+			squeeze_answer_from_cand(i, cols[i].candidate, false);
 		}
 	}
 }
@@ -185,12 +215,136 @@ void first_propagate(void) {
 				}
 			}
 		}
+#if DEBUG
 		print_answer();
+#endif
 	} while (answer_update);
 }
 
+void copy_answer_to_buf(int buf[MAX_LINE_SIZE][MAX_LINE_SIZE]) {
+	for (int i = 0; i < line_size; i++) {
+		for (int j = 0; j < line_size; j++) {
+			buf[i][j] = answer[i][j];
+		}
+	}
+}
+
+void copy_buf_to_answer(int buf[MAX_LINE_SIZE][MAX_LINE_SIZE]) {
+	for (int i = 0; i < line_size; i++) {
+		for (int j = 0; j < line_size; j++) {
+			answer[i][j] = buf[i][j];
+		}
+	}
+}
+
+int* get_line_from_buf(int index, bool isRow, int buf[MAX_LINE_SIZE][MAX_LINE_SIZE]) {
+	int* ret = (int*)malloc(sizeof(int) * line_size);
+	for (int i = 0; i < line_size; i++) {
+		if (isRow) {
+			ret[i] = buf[index][i];
+		}
+		else {
+			ret[i] = buf[i][index];
+		}
+	}
+	return ret;
+}
+
+bool is_good_to_buf(int* line, int index, bool isRow, int buf[MAX_LINE_SIZE][MAX_LINE_SIZE]) {
+	if (isRow) {
+		for (int i = 0; i < line_size; i++) {
+			if (buf[index][i] != 2 && line[i] != buf[index][i]) {
+				return false;
+			}
+		}
+	}
+	else {
+		for (int i = 0; i < line_size; i++) {
+			if (buf[i][index] != 2 && line[i] != buf[i][index]) {
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+void set_line_to_buf(int* line, int index, bool isRow, int buf[MAX_LINE_SIZE][MAX_LINE_SIZE]) {
+	if (isRow) {
+		for (int i = 0; i < line_size; i++) {
+			buf[index][i] = line[i];
+		}
+	}
+	else {
+		for (int i = 0; i < line_size; i++) {
+			buf[i][index] = line[i];
+		}
+	}
+}
+
+void print_buf(int buf[MAX_LINE_SIZE][MAX_LINE_SIZE]) {
+	for (int i = 0; i < line_size; i++) {
+		for (int j = 0; j < line_size; j++) {
+			printf("%d ", buf[i][j]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+}
+
+void print_line(int* line) {
+	for (int i = 0; i < line_size; i++) {
+		printf("%d ", line[i]);
+	}
+	printf("\n");
+}
+
+void recur_interleaving(int index, bool isRow, int buf[MAX_LINE_SIZE][MAX_LINE_SIZE]) {
+#if DEBUG
+	printf("%s[index %d, isRow %d] ::\n", __func__, index, (int)isRow);
+#endif
+	if (got_answer) return;
+	if (index >= line_size) {
+		// got answer
+		copy_buf_to_answer(buf);
+		got_answer = true;
+		return;
+	}
+#if DEBUG
+	printf("buffer status[index %d, isRow %d] ::\n", index, (int)isRow);
+	print_buf(buf);
+#endif
+	int* prev_line = get_line_from_buf(index, isRow, buf);
+#if DEBUG
+	printf("prev line[index %d, isRow %d] ::\n", index, (int)isRow);
+	print_line(prev_line);
+#endif
+	for (int* entry : (isRow ? rows[index].candidate : cols[index].candidate)) {
+#if DEBUG
+		printf("test line[index %d, isRow %d] ::\n", index, (int)isRow);
+		print_line(entry);
+#endif
+		if (is_good_to_buf(entry, index, isRow, buf)) {
+			set_line_to_buf(entry, index, isRow, buf);
+			recur_interleaving(isRow ? index : index + 1, isRow ? false : true, buf);
+#if DEBUG
+			printf("prev buffer status[index %d, isRow %d] ::\n", index, (int)isRow);
+			print_buf(buf);
+			printf("prev line[index %d, isRow %d] ::\n", index, (int)isRow);
+			print_line(prev_line);
+#endif
+			set_line_to_buf(prev_line, index, isRow, buf);
+#if DEBUG
+			printf("restored buffer status[index %d, isRow %d] ::\n", index, (int)isRow);
+			print_buf(buf);
+#endif
+		}
+	}
+}
+
 void regression(void) {
-	// find all possible choices and get answer
+	int buffer[MAX_LINE_SIZE][MAX_LINE_SIZE];
+	copy_answer_to_buf(buffer);
+	recur_interleaving(0, true, buffer);
 }
 
 void print_answer(void) {
@@ -205,10 +359,15 @@ void print_answer(void) {
 
 int main()
 {
+	//freopen("input.txt", "r", stdin);
 	get_input();
 	fill_candidate();
+	printf("answer status after candidiate process ::\n");
 	print_answer();
 	first_propagate();
-	//regression();
-	//print_answer();
+	printf("answer status after first propagate ::\n");
+	print_answer();
+	regression();
+	printf("answer status after regression (final) ::\n");
+	print_answer();
 }
