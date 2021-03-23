@@ -127,6 +127,7 @@ void squeeze_answer_from_cand(int index, vector<int*> v, bool isRow) {
 			else {
 				answer[i][index] = prev;
 			}
+			answer_update = true;
 		}
 	}
 }
@@ -206,6 +207,9 @@ void first_propagate(void) {
 					copy_cand_to_answer(i, rows[i].candidate[0], true);
 					answer_update = true;
 				}
+				else {
+					squeeze_answer_from_cand(i, rows[i].candidate, true);
+				}
 			}
 			// for cols
 			if (update_candidate_by_answer(i, false)) {
@@ -213,9 +217,13 @@ void first_propagate(void) {
 					copy_cand_to_answer(i, cols[i].candidate[0], false);
 					answer_update = true;
 				}
+				else {
+					squeeze_answer_from_cand(i, cols[i].candidate, false);
+				}
 			}
 		}
 #if DEBUG
+		printf("answer status per each propagate ::\n");
 		print_answer();
 #endif
 	} while (answer_update);
@@ -361,13 +369,18 @@ int main()
 {
 	//freopen("input.txt", "r", stdin);
 	get_input();
+	printf("\nfill candidate for each rows and columns ..\n");
 	fill_candidate();
-	printf("answer status after candidiate process ::\n");
+	printf("<< Result Image >>\n");
 	print_answer();
+	printf("\npropagate based on candidate information ..\n");
 	first_propagate();
-	printf("answer status after first propagate ::\n");
+	printf("<< Result Image >>\n");
 	print_answer();
+	printf("\nsearch with regression ..\n");
 	regression();
-	printf("answer status after regression (final) ::\n");
+	printf("<< Result Image >>\n");
 	print_answer();
 }
+
+
