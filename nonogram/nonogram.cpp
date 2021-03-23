@@ -360,7 +360,7 @@ const char mark[3] = {'_', '#', '?'};
 void print_answer(void) {
 	for (int i = 0; i < line_size; i++) {
 		for (int j = 0; j < line_size; j++) {
-			printf("%d ", mark[answer[i][j]]);
+			printf("%c ", mark[answer[i][j]]);
 		}
 		printf("\n");
 	}
