@@ -2,7 +2,8 @@
 #define MAX_NAME_LEN 5
 #define MAX_TEAM_NR 20
 #define MAX_MEMBER_NR 100000
-#define HASH_SIZE 10007
+//#define HASH_SIZE ((2 << 15) - 1)
+#define HASH_SIZE 32771
 
 int nr_teams;
 int nr_members;
@@ -112,11 +113,26 @@ static int getTeamByName(const char teamName[MAX_NAME_LEN]) {
 	return -1;
 }
 
+static unsigned long long djb2(const char str[MAX_NAME_LEN]) {
+	unsigned long long hash = 5381;
+	for (register int i = 0; i < 4; ++i)
+		hash = (hash << 5) + hash + (unsigned long long)str[i];
+	return hash;
+}
+
+static unsigned long long fnv_1a(const char str[MAX_NAME_LEN]) {
+	unsigned long long hash = 0xcbf29ce484222325l;
+	for (register int i = 0; i < 4; ++i) {
+		hash ^= (unsigned long long)str[i];
+		hash *= 0x100000001b3l;
+	}
+	return hash;
+}
+
 static int getHashKey(const char memberName[MAX_NAME_LEN]) {
-	int sum = 0;
-	for (register int i = 0; i < 4; i++)
-		sum += (int)memberName[i] * (int)memberName[i];
-	return sum % HASH_SIZE;
+	//unsigned long long hash = djb2(memberName);
+	unsigned long long hash = fnv_1a(memberName);
+	return (int)(hash % HASH_SIZE);
 }
 
 static int getMemberByName(const char memberName[MAX_NAME_LEN]) {
